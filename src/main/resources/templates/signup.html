@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('가입')}"></head>
+<body class="center">
+<main class="card narrow">
+    <h1>가입</h1>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+    <form th:action="@{/signup}" method="post" class="stack">
+        <label>아이디 (영문·숫자·밑줄 4~20자)
+            <input name="loginId" th:value="${loginId}" autocomplete="username" required pattern="[A-Za-z0-9_]{4,20}">
+        </label>
+        <label>비밀번호 (8자 이상)
+            <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+        </label>
+        <label>비밀번호 확인
+            <input name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+        </label>
+        <button type="submit">가입</button>
+    </form>
+    <p class="muted"><a th:href="@{/login}">로그인으로</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('드래프트')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <div>
+            <h1 th:text="${d.season()} + ' 드래프트'"></h1>
+            <p class="muted" th:text="${d.currentLabel() != null} ? '지금 차례: ' + ${d.currentLabel()} + ' · 남은 내 지명권 ' + ${d.myLeft()} + '장' : '모든 지명이 끝났습니다'"></p>
+        </div>
+        <div class="row">
+            <form th:if="${d.currentLabel() != null and !d.myTurn()}" method="post"
+                  th:action="@{/careers/{id}/draft/auto(id=${h.careerId()},type=${d.type()})}">
+                <button type="submit" class="primary"
+                        th:text="${d.myLeft() > 0} ? '내 차례까지 진행 →' : '남은 AI 지명 진행 →'">내 차례까지 진행 →</button>
+            </form>
+            <form th:if="${d.myLeft() == 0}" method="post"
+                  th:action="@{/careers/{id}/draft/finish(id=${h.careerId()})}">
+                <button type="submit" class="primary">드래프트 마감 →</button>
+            </form>
+        </div>
+    </section>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+    <p class="strong" th:if="${d.myTurn()}">내 지명 차례입니다. 후보를 골라 지명하세요.</p>
+
+    <div class="grid">
+        <section class="card">
+            <h2>지명 순서</h2>
+            <table class="compact">
+                <tr><th>순번</th><th>R</th><th>구단</th><th>지명</th></tr>
+                <tr th:each="p : ${d.around()}" th:classappend="${p.current()} ? 'current' : (${p.mine()} ? 'mine')">
+                    <td class="num" th:text="${p.pickNo()}"></td>
+                    <td class="num" th:text="${p.round()}"></td>
+                    <td th:text="${p.team()}"></td>
+                    <td th:text="${p.player() != null} ? ${p.player()} : (${p.current()} ? '← 지명 중' : '')"></td>
+                </tr>
+            </table>
+        </section>
+        <section class="card">
+            <h2>내 지명권</h2>
+            <table class="compact">
+                <tr><th>순번</th><th>R</th><th>지명</th></tr>
+                <tr th:each="p : ${d.myPicks()}" th:classappend="${p.current()} ? 'current'">
+                    <td class="num" th:text="${p.pickNo()}"></td>
+                    <td class="num" th:text="${p.round()}"></td>
+                    <td th:text="${p.player() != null} ? ${p.player()} : ''"></td>
+                </tr>
+            </table>
+        </section>
+    </div>
+
+    <section class="card">
+        <div class="bar">
+            <h2 th:text="'후보 (남은 ' + ${d.available()} + '명)'"></h2>
+            <nav class="tabs">
+                <a th:each="t : ${ {'all', 'h', 'p'} }" th:text="${t == 'all'} ? '전체' : (${t == 'h'} ? '타자' : '투수')"
+                   th:href="@{/careers/{id}/draft(id=${h.careerId()},type=${t})}"
+                   th:classappend="${t == d.type()} ? 'active'"></a>
+            </nav>
+        </div>
+        <p class="muted small" th:text="'능력치·잠재력은 스카우트 추정 범위, 순위는 추정치(현재 능력과 잠재력 반반) 기준 상위 100명 · 스카우트 ' + ${d.scout()}"></p>
+        <p class="muted small" th:if="${d.type() == 'all'}">능력 칸: 타자 = 컨택 · 파워 · 선구 · 스피드 · 수비 / 투수 = 구위 · 제구 · 장타억제 · 스태미나</p>
+        <p class="muted small">지명 선수는 AA 소속 마이너 계약 6년으로 다음 시즌을 시작합니다 (40인 명단 밖).</p>
+        <table class="data">
+            <tr>
+                <th>순위</th><th>이름</th><th>포지션</th><th>나이</th><th>출신</th><th>타/투</th>
+                <th:block th:switch="${d.type()}">
+                    <th:block th:case="'h'"><th>컨택</th><th>파워</th><th>선구</th><th>스피드</th><th>수비</th></th:block>
+                    <th:block th:case="'p'"><th>구위</th><th>제구</th><th>장타억제</th><th>스태미나</th><th></th></th:block>
+                    <th:block th:case="*"><th>능력1</th><th>능력2</th><th>능력3</th><th>능력4</th><th>능력5</th></th:block>
+                </th:block>
+                <th>잠재력</th><th></th>
+            </tr>
+            <tr th:each="p : ${d.prospects()}">
+                <td class="num" th:text="${p.rank()}"></td>
+                <td th:text="${p.name()}"></td>
+                <td th:text="${p.pos()}"></td>
+                <td class="num" th:text="${p.age()}"></td>
+                <td th:text="${p.school()}"></td>
+                <td th:text="${p.hands()}"></td>
+                <td class="num" th:each="v : ${p.ratings()}" th:text="${v}"></td>
+                <td class="num strong" th:text="${p.potential()}"></td>
+                <td>
+                    <form th:if="${d.myTurn()}" method="post"
+                          th:action="@{/careers/{id}/draft/pick(id=${h.careerId()},type=${d.type()})}">
+                        <input type="hidden" name="playerId" th:value="${p.playerId()}">
+                        <button type="submit" class="mini" th:data-name="${p.name()}"
+                                onclick="return confirm(this.dataset.name + ' 지명할까요?')">지명</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </section>
+</main>
+</body>
+</html>

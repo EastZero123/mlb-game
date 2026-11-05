@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('FA 시장')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <div>
+            <h1 th:text="${f.season()} + ' FA 시장'"></h1>
+            <p class="muted" th:text="${f.round() <= f.rounds()} ? ${f.round()} + ' / ' + ${f.rounds()} + '라운드 진행 전 · 제안을 넣고 라운드를 진행하세요' : '모든 라운드가 끝났습니다'"></p>
+        </div>
+        <div class="row">
+            <form th:if="${f.round() <= f.rounds()}" method="post"
+                  th:action="@{/careers/{id}/fa/round(id=${h.careerId()},type=${f.type()})}">
+                <button type="submit" class="primary"
+                        th:text="${f.round()} + '라운드 진행 →'">라운드 진행 →</button>
+            </form>
+            <form th:unless="${f.round() <= f.rounds()}" method="post"
+                  th:action="@{/careers/{id}/fa/close(id=${h.careerId()})}">
+                <button type="submit" class="primary">FA 시장 마감 (다음 단계) →</button>
+            </form>
+        </div>
+    </section>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+
+    <section class="card">
+        <h2>예산</h2>
+        <p>
+            <span th:text="'다음 시즌 예산 (스카우트 비용 차감) ' + ${f.budget()}"></span> ·
+            <span th:text="'확정 연봉 ' + ${f.payroll()}"></span> ·
+            <span th:text="'제안 합계 ' + ${f.offered()}"></span> ·
+            <span class="strong" th:classappend="${f.overBudget()} ? 'err'" th:text="'남은 여유 ' + ${f.room()}"></span>
+        </p>
+        <p class="muted small">
+            선수는 요구액(연봉 × 연수)을 먼저 부릅니다. 요구액의 115% 이상(연수 보정 포함)이면 즉시 계약하고,
+            여러 구단이 붙으면 라운드마다 요구액이 오르며, 아무도 원하지 않으면 내려갑니다.
+            선수마다 원하는 연수가 있어 그보다 짧으면 제안 가치가 1년당 4% 깎이고, 길면 1년당 1% 오릅니다.
+            다른 구단 금액은 공개되지 않으며, 계약이 성사되면 공개됩니다. 계약 기간은 45세 시즌까지입니다.
+        </p>
+    </section>
+
+    <section class="card" th:unless="${#lists.isEmpty(f.myOffers())}">
+        <h2>내 제안</h2>
+        <table class="data">
+            <tr><th>이름</th><th>포지션</th><th>나이</th><th>요구</th><th>내 제안</th><th>반응</th><th></th></tr>
+            <tr th:each="r : ${f.myOffers()}" th:classappend="${r.mineSigned()} ? 'mine'">
+                <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+                <td th:text="${r.pos()}"></td>
+                <td class="num" th:text="${r.age()}"></td>
+                <td th:text="${r.result() != null} ? '계약: ' + ${r.result()} : ${r.ask()}"></td>
+                <td th:text="'연 $' + ${r.mySalary()} + 'M × ' + ${r.myYears()} + '년'"></td>
+                <td class="strong" th:text="${r.reaction()}"></td>
+                <td>
+                    <form th:if="${r.result() == null and f.round() <= f.rounds()}" method="post"
+                          th:action="@{/careers/{id}/fa/withdraw(id=${h.careerId()},type=${f.type()})}">
+                        <input type="hidden" name="playerId" th:value="${r.playerId()}">
+                        <button type="submit" class="mini">철회</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </section>
+
+    <section class="card">
+        <div class="bar">
+            <h2 th:text="'시장 (' + ${#lists.size(f.open())} + '명 표시)'"></h2>
+            <nav class="tabs">
+                <a th:each="t : ${ {'all', 'h', 'p'} }" th:text="${t == 'all'} ? '전체' : (${t == 'h'} ? '타자' : '투수')"
+                   th:href="@{/careers/{id}/fa(id=${h.careerId()},type=${t})}"
+                   th:classappend="${t == f.type()} ? 'active'"></a>
+            </nav>
+        </div>
+        <p class="muted small" th:text="'능력치는 스카우트 추정 범위, 순위는 추정 현재 가치 기준 · 스카우트 ' + ${f.scout()}"></p>
+        <p class="muted small">능력 칸: 타자 = 컨택 · 파워 · 선구 · 스피드 · 수비 / 투수 = 구위 · 제구 · 장타억제 · 스태미나</p>
+        <table class="data">
+            <tr><th>순위</th><th>이름</th><th>포지션</th><th>나이</th>
+                <th>능력1</th><th>능력2</th><th>능력3</th><th>능력4</th><th>능력5</th>
+                <th>요구</th><th>관심 구단</th><th>제안 (연봉 $M · 연수)</th><th>반응</th></tr>
+            <tr th:each="r : ${f.open()}">
+                <td class="num" th:text="${r.rank()}"></td>
+                <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+                <td th:text="${r.pos()}"></td>
+                <td class="num" th:text="${r.age()}"></td>
+                <td class="num" th:each="v : ${r.ratings()}" th:text="${v}"></td>
+                <td class="strong" th:text="${r.ask()}"></td>
+                <td class="num" th:text="${f.round() == 1} ? '-' : ${r.offers()}"></td>
+                <td>
+                    <form th:if="${f.round() <= f.rounds()}" method="post" class="row moves"
+                          th:action="@{/careers/{id}/fa/offer(id=${h.careerId()},type=${f.type()})}">
+                        <input type="hidden" name="playerId" th:value="${r.playerId()}">
+                        <input type="number" name="salary" step="0.1" min="0.78" max="65" style="width:5.5rem"
+                               th:value="${r.mySalary() != ''} ? ${r.mySalary()} : ${#numbers.formatDecimal(r.askSalary() / 1000.0, 1, 1)}">
+                        <select name="years">
+                            <option th:each="y : ${#numbers.sequence(1, r.maxYears())}" th:value="${y}" th:text="${y} + '년'"
+                                    th:selected="${r.myYears() > 0} ? ${y == r.myYears()} : ${y == r.askYears()}"></option>
+                        </select>
+                        <button type="submit" class="mini" th:text="${r.mySalary() != ''} ? '수정' : '제안'">제안</button>
+                    </form>
+                </td>
+                <td class="muted" th:text="${r.reaction()}"></td>
+            </tr>
+        </table>
+    </section>
+
+    <section class="card" th:unless="${#lists.isEmpty(f.signed())}">
+        <h2 th:text="'이번 시장 계약 (' + ${#lists.size(f.signed())} + '명)'"></h2>
+        <table class="data">
+            <tr><th>이름</th><th>포지션</th><th>나이</th><th>계약</th></tr>
+            <tr th:each="r : ${f.signed()}" th:classappend="${r.mineSigned()} ? 'mine'">
+                <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+                <td th:text="${r.pos()}"></td>
+                <td class="num" th:text="${r.age()}"></td>
+                <td th:text="${r.result()}"></td>
+            </tr>
+        </table>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('운영')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <div>
+            <h1>운영 지정</h1>
+            <p class="muted">
+                <span th:text="${h.teamName()} + ' MLB'"></span> ·
+                <span th:text="'다음 선발: ' + ${t.nextStarter()}"></span>
+            </p>
+        </div>
+        <form th:action="@{/careers/{id}/tactics/reset(id=${h.careerId()})}" method="post"
+              onsubmit="return confirm('모든 지정을 해제하고 AI 자동 운영으로 돌아갈까요?');">
+            <button type="submit" class="danger">전부 자동으로</button>
+        </form>
+    </section>
+
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <div class="card err" th:if="${errors}">
+        <p class="strong">저장하지 못했습니다</p>
+        <ul><li th:each="e : ${errors}" th:text="${e}"></li></ul>
+    </div>
+    <div class="card" th:unless="${#lists.isEmpty(t.notes())}">
+        <p class="strong">지정 선수 이탈</p>
+        <ul><li th:each="n : ${t.notes()}" th:text="${n}"></li></ul>
+        <p class="muted small">복귀하면 지정한 대로 다시 출전합니다.</p>
+    </div>
+    <p class="muted">지정을 끈 항목은 AI 가 정하며, 지금 AI 구성이 흐리게 보입니다. 지정한 선수가 부상·강등으로 빠지면 그 자리만 자동으로 메웁니다.</p>
+
+    <form th:action="@{/careers/{id}/tactics(id=${h.careerId()})}" method="post" class="stack">
+        <div class="grid">
+            <!-- 타순 -->
+            <section class="card">
+                <label class="row strong">
+                    <input type="checkbox" name="lineupOn" value="true" th:checked="${t.form().lineupOn()}"
+                           onchange="document.getElementById('lineupBody').disabled = !this.checked">
+                    타순 지정
+                </label>
+                <fieldset id="lineupBody" class="plain" th:disabled="${!t.form().lineupOn()}">
+                    <h3>우투수 상대 <span class="muted small">(좌투수 상대를 따로 정하지 않으면 공통)</span></h3>
+                    <table class="compact">
+                        <tr th:each="r : ${t.form().vsRight()}">
+                            <td class="num muted" th:text="${r.order()}"></td>
+                            <td><select name="rp">
+                                <option th:each="o : ${t.hitters()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                        th:text="${o.label()}" th:selected="${o.id() == r.playerId()}"></option>
+                            </select></td>
+                            <td><select name="rpos">
+                                <option th:each="o : ${t.positions()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                        th:text="${o.label()}" th:selected="${o.id() == r.pos()}"></option>
+                            </select></td>
+                        </tr>
+                    </table>
+
+                    <label class="row">
+                        <input type="checkbox" name="leftOn" value="true" th:checked="${t.form().leftOn()}"
+                               onchange="document.getElementById('leftBody').disabled = !this.checked">
+                        좌투수 상대 타순 따로
+                    </label>
+                    <fieldset id="leftBody" class="plain" th:disabled="${!t.form().leftOn()}">
+                        <table class="compact">
+                            <tr th:each="r : ${t.form().vsLeft()}">
+                                <td class="num muted" th:text="${r.order()}"></td>
+                                <td><select name="lp">
+                                    <option th:each="o : ${t.hitters()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                            th:text="${o.label()}" th:selected="${o.id() == r.playerId()}"></option>
+                                </select></td>
+                                <td><select name="lpos">
+                                    <option th:each="o : ${t.positions()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                            th:text="${o.label()}" th:selected="${o.id() == r.pos()}"></option>
+                                </select></td>
+                            </tr>
+                        </table>
+                    </fieldset>
+                    <p class="muted small">타순을 지정하면 상대 선발 손에 따른 자동 플래툰 교체는 하지 않습니다.</p>
+                </fieldset>
+            </section>
+
+            <div>
+                <!-- 로테이션 -->
+                <section class="card">
+                    <label class="row strong">
+                        <input type="checkbox" name="rotOn" value="true" th:checked="${t.form().rotOn()}"
+                               onchange="document.getElementById('rotBody').disabled = !this.checked">
+                        선발 로테이션 지정
+                    </label>
+                    <fieldset id="rotBody" class="plain" th:disabled="${!t.form().rotOn()}">
+                        <table class="compact">
+                            <tr th:each="v, st : ${t.form().rotation()}">
+                                <td class="num muted" th:text="${st.count} + '선발'"></td>
+                                <td><select name="rot">
+                                    <option th:each="o : ${t.pitchers()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                            th:text="${o.label()}" th:selected="${o.id() == v}"></option>
+                                </select></td>
+                            </tr>
+                        </table>
+                        <p class="muted small">순서대로 돌아가며 등판합니다. 중간에 바꾸면 다음 경기 순번 자리부터 새 순서가 적용됩니다.</p>
+                    </fieldset>
+                </section>
+
+                <!-- 불펜 -->
+                <section class="card">
+                    <label class="row strong">
+                        <input type="checkbox" name="penOn" value="true" th:checked="${t.form().penOn()}"
+                               onchange="document.getElementById('penBody').disabled = !this.checked">
+                        불펜 순서 지정
+                    </label>
+                    <fieldset id="penBody" class="plain" th:disabled="${!t.form().penOn()}">
+                        <table class="compact">
+                            <tr th:each="v, st : ${t.form().bullpen()}">
+                                <td class="muted" th:text="${st.index == 0} ? '마무리' : (${st.count - 1} + '순위')"></td>
+                                <td><select name="pen">
+                                    <option th:each="o : ${t.pitchers()}" th:value="${o.id() == 0} ? '' : ${o.id()}"
+                                            th:text="${o.label()}" th:selected="${o.id() == v}"></option>
+                                </select></td>
+                            </tr>
+                        </table>
+                        <p class="muted small">마무리는 9회 이후 리드 상황, 나머지는 순위대로 투입됩니다.
+                            비워 둔 자리와 빠진 투수는 구위 순으로 뒤에 붙고, 맨 뒤 투수는 크게 앞서거나 뒤질 때 나옵니다.
+                            연투로 지친 투수는 그날 건너뜁니다.</p>
+                    </fieldset>
+                </section>
+
+                <section class="card">
+                    <label class="row">
+                        <input type="checkbox" name="autoRest" value="true" th:checked="${t.form().autoRest()}">
+                        주전 휴식일 자동 교체 (포수 약 22%, 야수 약 10%)
+                    </label>
+                    <label class="row">
+                        <input type="checkbox" name="autoSwap" value="true" th:checked="${t.form().autoSwap()}">
+                        매주 월요일 AI 자동 교체 (AAA 40인 선수가 MLB 최하위보다 확실히 좋으면 1명씩 맞바꿈)
+                    </label>
+                    <p class="muted small">부상자 대체 콜업과 복귀 시 강등은 26인 유지를 위해 항상 자동입니다. 직접 이동은 팀 로스터 화면에서.</p>
+                </section>
+            </div>
+        </div>
+        <div><button type="submit" class="primary">저장</button></div>
+    </form>
+
+    <h2>타자 참고</h2>
+    <table class="data">
+        <tr><th>이름</th><th>타/투</th><th>상태</th><th>컨택</th><th>파워</th><th>선구</th><th>스피드</th>
+            <th>주포지션 수비</th><th>수비 가능 위치</th><th>이번 시즌</th></tr>
+        <tr th:each="r : ${t.roster()}" th:unless="${r.pitcher()}">
+            <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+            <td th:text="${r.hands()}"></td>
+            <td th:text="${r.status()}"></td>
+            <td class="num" th:each="v : ${r.ratings()}" th:text="${v}"></td>
+            <td class="muted" th:text="${t.defense().get(r.playerId())}"></td>
+            <td class="muted" th:text="${r.stats()}"></td>
+        </tr>
+    </table>
+    <h2>투수 참고</h2>
+    <table class="data">
+        <tr><th>이름</th><th>타/투</th><th>상태</th><th>구위</th><th>제구</th><th>장타억제</th><th>스태미나</th><th>이번 시즌</th></tr>
+        <tr th:each="r : ${t.roster()}" th:if="${r.pitcher()}">
+            <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+            <td th:text="${r.hands()}"></td>
+            <td th:text="${r.status()}"></td>
+            <td class="num" th:each="v : ${r.ratings()}" th:text="${v}"></td>
+            <td class="muted" th:text="${r.stats()}"></td>
+        </tr>
+    </table>
+</main>
+</body>
+</html>

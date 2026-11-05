@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('트레이드')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <div>
+            <h1>트레이드</h1>
+            <p th:class="${w.open()} ? 'muted' : 'err'" th:text="${w.message()}"></p>
+        </div>
+        <form method="get" class="row" th:action="@{/careers/{id}/trade(id=${h.careerId()})}">
+            <select name="team">
+                <option value="0">상대 구단 선택</option>
+                <option th:each="t : ${teams}" th:value="${t.teamId()}" th:text="${t.name()}"
+                        th:selected="${t.teamId() == partner}"></option>
+            </select>
+            <button type="submit">보기</button>
+        </form>
+    </section>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+
+    <form th:if="${partnerName != null}" method="post" id="trade"
+          th:action="@{/careers/{id}/trade(id=${h.careerId()})}"
+          th:data-mypay="${myInfo.payroll()}" th:data-myforty="${myInfo.fortyMan()}" th:data-mybudget="${myInfo.budget()}"
+          th:data-max="${max}">
+        <input type="hidden" name="team" th:value="${partner}">
+        <section class="card">
+            <div class="bar">
+                <h2 th:text="'제안: 내 팀 ↔ ' + ${partnerName}"></h2>
+                <button type="submit" class="primary" th:disabled="${!w.open()}"
+                        onclick="return confirm('이 트레이드를 제안할까요? 상대가 수락하면 바로 성사됩니다.')">트레이드 제안 →</button>
+            </div>
+            <table class="compact">
+                <tr><th></th><th>보냄 / 받음</th><th>연봉 합계 (40인)</th><th>40인</th><th>예산</th></tr>
+                <tr>
+                    <td class="strong">내 팀</td>
+                    <td><span id="giveN">0</span>명 보냄 · <span id="getN">0</span>명 받음</td>
+                    <td><span id="myPay"></span></td>
+                    <td><span id="myForty"></span></td>
+                    <td th:text="'$' + ${#numbers.formatDecimal(myInfo.budget() / 1000.0, 1, 1)} + 'M'"></td>
+                </tr>
+            </table>
+            <p class="muted small" th:text="'한쪽 최대 ' + ${max} + '명 · 내 팀은 트레이드 뒤 40인 40명 이하, 연봉 합계가 늘면 예산 이하여야 합니다. '
+                + '상대 구단도 자기 로스터·연봉 사정에 맞지 않으면 거절합니다. '
+                + 'AI 는 남은 계약 동안의 기대 가치와 연봉, 팀 상황으로 판단하고, 자기 쪽이 조금 더 이득일 때 수락합니다.'"></p>
+            <p class="muted small">마이너 계약 선수 연봉(7.5만)은 연봉 합계에 들어가지 않습니다. 시즌 중 트레이드로 26인을 넘으면 가장 낮은 선수가 AAA 로 내려갑니다.</p>
+        </section>
+
+        <p class="muted small">능력치는 스카우트 추정 범위 (내 팀은 한 단계 정확). 종합 = 추정 현재 가치: 45 대체 선수 · 55 주전급 · 65+ 올스타급.</p>
+        <!-- 탭 전환은 화면에서만 (숨긴 쪽 체크도 그대로 전송됨) -->
+        <nav class="tabs" id="tradeTabs">
+            <a href="#" class="active" data-tab="tabMine">내 팀 · 보낼 선수 <span id="tabGiveN"></span></a>
+            <a href="#" data-tab="tabTheirs"><span th:text="${partnerName}"></span> · 받을 선수 <span id="tabGetN"></span></a>
+        </nav>
+        <section class="card" id="tabMine">
+            <h2>내 팀 (보낼 선수)</h2>
+            <h3>타자</h3>
+            <th:block th:replace="~{fragments :: tradeTable(${mine}, 'give', false)}"></th:block>
+            <h3>투수</h3>
+            <th:block th:replace="~{fragments :: tradeTable(${mine}, 'give', true)}"></th:block>
+        </section>
+        <section class="card" id="tabTheirs" hidden>
+            <h2 th:text="${partnerName} + ' (받을 선수)'"></h2>
+            <h3>타자</h3>
+            <th:block th:replace="~{fragments :: tradeTable(${theirs}, 'get', false)}"></th:block>
+            <h3>투수</h3>
+            <th:block th:replace="~{fragments :: tradeTable(${theirs}, 'get', true)}"></th:block>
+        </section>
+    </form>
+
+    <section class="card" th:unless="${#lists.isEmpty(history)}">
+        <h2>트레이드 기록</h2>
+        <ul>
+            <li th:each="t : ${history}" th:text="${t}"></li>
+        </ul>
+    </section>
+</main>
+<script>
+    // 트레이드 뒤 연봉 합계·40인 미리보기 (서버가 최종 검사)
+    (function () {
+        var form = document.getElementById('trade');
+        if (!form) return;
+        var d = form.dataset;
+        function sum(cls) {
+            var s = {n: 0, pay: 0, forty: 0};
+            form.querySelectorAll('input.' + cls + ':checked').forEach(function (c) {
+                s.n++;
+                if (c.dataset.forty === 'true') { s.pay += +c.dataset.salary; s.forty++; }
+            });
+            return s;
+        }
+        function m(k) { return '$' + (k / 1000).toFixed(1) + 'M'; }
+        function show(id, before, after, limit) {
+            var el = document.getElementById(id);
+            el.textContent = (before === after ? '' : m(before) + ' → ') + m(after);
+            el.className = after > limit && after > before ? 'err strong' : '';
+        }
+        function update() {
+            var g = sum('give'), r = sum('get');
+            document.getElementById('giveN').textContent = g.n;
+            document.getElementById('getN').textContent = r.n;
+            document.getElementById('tabGiveN').textContent = g.n ? '(' + g.n + '명 선택)' : '';
+            document.getElementById('tabGetN').textContent = r.n ? '(' + r.n + '명 선택)' : '';
+            show('myPay', +d.mypay, +d.mypay - g.pay + r.pay, +d.mybudget);
+            var mf = +d.myforty - g.forty + r.forty;
+            var e1 = document.getElementById('myForty');
+            e1.textContent = d.myforty + ' → ' + mf; e1.className = mf > 40 ? 'err strong' : '';
+        }
+        form.addEventListener('change', update);
+        update();
+
+        // 내 팀 / 상대 팀 탭 (마지막으로 본 탭은 이 창에서만 기억)
+        var tabs = document.querySelectorAll('#tradeTabs a');
+        function select(id) {
+            tabs.forEach(function (t) {
+                var on = t.dataset.tab === id;
+                t.classList.toggle('active', on);
+                document.getElementById(t.dataset.tab).hidden = !on;
+            });
+            try { sessionStorage.setItem('tradeTab', id); } catch (e) { /* 저장 불가 환경은 무시 */ }
+        }
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function (e) { e.preventDefault(); select(t.dataset.tab); });
+        });
+        try {
+            var last = sessionStorage.getItem('tradeTab');
+            if (last && document.getElementById(last)) select(last);
+        } catch (e) { /* 무시 */ }
+    })();
+</script>
+</body>
+</html>

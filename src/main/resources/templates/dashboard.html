@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('대시보드')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page" id="main" th:fragment="main">
+    <section class="bar">
+        <div>
+            <h1 th:text="${h.teamName()}"></h1>
+            <p class="muted" th:text="${h.season()} + ' 시즌 · ' + ${h.phaseName()} + ' · ' + ${h.date()}"></p>
+        </div>
+        <div class="row" id="advance">
+            <!-- 여러 날 진행 (테스트용: 로컬에서만 보임, DevTools): 한 요청 안에서 "다음 날" 반복 -->
+            <form th:if="${off == null and devTools}" th:action="@{/careers/{id}/sim(id=${h.careerId()})}" method="post"
+                  th:attr="hx-post=@{/careers/{id}/sim(id=${h.careerId()})}"
+                  hx-target="#main" hx-swap="outerHTML" hx-disabled-elt="#advance button"
+                  hx-indicator="#simWait" class="row">
+                <span class="muted small">테스트</span>
+                <button type="submit" name="mode" value="week">1주 →</button>
+                <button type="submit" name="mode" value="phase"
+                        th:text="${h.phase() == 2} ? '포스트시즌 끝까지 →' : '정규시즌 끝까지 →'">정규시즌 끝까지 →</button>
+                <span id="simWait" class="muted small htmx-indicator">진행 중…</span>
+            </form>
+            <a th:if="${off != null and off.draftNext()}" class="button primary"
+               th:href="@{/careers/{id}/draft(id=${h.careerId()})}">드래프트 화면 →</a>
+            <a th:if="${off != null and off.contractStage()}" th:class="${off.contractsOpen() > 0} ? 'button primary' : 'button'"
+               th:href="@{/careers/{id}/contracts(id=${h.careerId()})}"
+               th:text="${off.contractsOpen() > 0} ? '계약 결정 화면 (' + ${off.contractsOpen()} + '명 남음) →' : '계약 결정 다시 보기'">계약 결정 화면 →</a>
+            <a th:if="${off != null and off.faOpen()}" class="button primary"
+               th:href="@{/careers/{id}/fa(id=${h.careerId()})}"
+               th:text="'FA 시장 화면 (' + ${off.faRound()} + '/6라운드) →'">FA 시장 화면 →</a>
+            <form th:unless="${off != null and off.blocked()}"
+                  th:action="@{/careers/{id}/next(id=${h.careerId()})}" method="post"
+                  th:attr="hx-post=@{/careers/{id}/next(id=${h.careerId()})}"
+                  hx-target="#main" hx-swap="outerHTML" hx-disabled-elt="#advance button">
+                <button type="submit" class="primary"
+                        th:text="${off != null} ? '다음 단계: ' + ${off.nextLabel()} + ' →' : '다음 날 →'">다음 날 →</button>
+            </form>
+        </div>
+    </section>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+
+    <div class="grid" th:if="${off != null}">
+        <section class="card">
+            <div class="bar">
+                <h2 th:text="'오프시즌 ' + ${off.done()} + ' / ' + ${off.total()} + '단계'"></h2>
+                <form th:if="${devTools}" th:action="@{/careers/{id}/offseason/finish(id=${h.careerId()})}" method="post"
+                      th:attr="hx-post=@{/careers/{id}/offseason/finish(id=${h.careerId()})}"
+                      hx-target="#main" hx-swap="outerHTML" hx-disabled-elt="find button"
+                      hx-confirm="남은 오프시즌 단계를 모두 AI 로 처리하고 새 시즌으로 넘어갈까요? (내 드래프트 지명 포함)">
+                    <button type="submit" title="테스트용 (로컬에서만 보임). 내 계약 결정·FA·드래프트도 AI 가 대신합니다">테스트: 남은 단계 한 번에</button>
+                </form>
+            </div>
+            <p class="muted" th:if="${#lists.isEmpty(off.report())}">
+                단계마다 결과가 여기에 쌓입니다. 1단계에서 시즌 기록을 마감하고 드래프트 1라운드 추첨을 합니다.</p>
+            <pre class="report" th:unless="${#lists.isEmpty(off.report())}"
+                 th:text="${off.reportText()}"></pre>
+        </section>
+
+        <section class="card">
+            <h2>스카우트</h2>
+            <p th:text="'현재 ' + ${scoutNow}"></p>
+            <form th:if="${off.scoutChangeable()}" method="post" class="row"
+                  th:action="@{/careers/{id}/scout(id=${h.careerId()})}">
+                <select name="level">
+                    <option th:each="o : ${scouts}" th:value="${o.id()}" th:text="${o.label()}"
+                            th:selected="${o.id() == h.scoutLevel()}"></option>
+                </select>
+                <button type="submit">변경</button>
+            </form>
+            <p class="muted small" th:if="${off.scoutChangeable()}">
+                단계가 높을수록 드래프트·FA·로스터 화면의 능력치 범위가 좁아집니다. 비용은 다음 시즌 예산에서 빠지고,
+                FA 시장이 열리면 다음 오프시즌까지 바꿀 수 없습니다.</p>
+            <p class="muted small" th:unless="${off.scoutChangeable()}">FA 시장이 열린 뒤라 다음 오프시즌(1~4단계)까지 바꿀 수 없습니다.</p>
+        </section>
+
+        <section class="card" th:unless="${#lists.isEmpty(off.firstRound())}">
+            <h2>드래프트 1라운드</h2>
+            <p class="muted small">1~6순위는 포스트시즌 미진출 구단 추첨 (성적 역순 확률). 이후 미진출 구단 성적 역순 → 진출 구단 성적 역순.
+                2라운드부터는 성적 역순.</p>
+            <table class="compact">
+                <tr><th>순위</th><th>구단</th><th>추첨 전</th><th>지명</th></tr>
+                <tr th:each="d : ${off.firstRound()}" th:classappend="${d.mine()} ? 'mine'">
+                    <td class="num" th:text="${d.pickNo()}"></td>
+                    <td th:text="${d.team()}"></td>
+                    <td class="muted" th:text="${d.preLabel()}"></td>
+                    <td th:text="${d.player() != null} ? ${d.player()} : ''"></td>
+                </tr>
+            </table>
+            <h3>내 지명권</h3>
+            <p class="small">
+                <span th:each="d, st : ${off.myPicks()}"
+                      th:text="${d.round()} + 'R ' + ${d.pickNo()} + '순' + (${d.player() != null} ? ' ' + ${d.player()} : '') + (${st.last} ? '' : ' · ')"></span>
+            </p>
+        </section>
+    </div>
+
+    <div class="grid">
+        <section class="card">
+            <h2>오늘 경기</h2>
+            <p class="muted" th:if="${#lists.isEmpty(today)}">이날 치른 MLB 정규시즌 경기가 없습니다.</p>
+            <table th:unless="${#lists.isEmpty(today)}" class="compact">
+                <tr th:each="g : ${today}" th:classappend="${g.mine()} ? 'mine'">
+                    <td th:text="${g.away()}"></td>
+                    <td class="num" th:text="${g.awayRuns()}"></td>
+                    <td class="muted">@</td>
+                    <td th:text="${g.home()}"></td>
+                    <td class="num" th:text="${g.homeRuns()}"></td>
+                    <td class="muted" th:text="${g.innings() != 9} ? ${g.innings()} + '회' : ''"></td>
+                    <td><a th:href="@{/careers/{id}/games/{s}/{n}(id=${h.careerId()},s=${g.season()},n=${g.gameNo()})}">박스</a></td>
+                </tr>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>내 팀 최근 경기</h2>
+            <p class="muted" th:if="${#lists.isEmpty(recent)}">최근 2주간 경기가 없습니다.</p>
+            <table th:unless="${#lists.isEmpty(recent)}" class="compact">
+                <tr th:each="g : ${recent}">
+                    <td th:text="${g.away()}"></td>
+                    <td class="num" th:text="${g.awayRuns()}"></td>
+                    <td class="muted">@</td>
+                    <td th:text="${g.home()}"></td>
+                    <td class="num" th:text="${g.homeRuns()}"></td>
+                    <td><a th:href="@{/careers/{id}/games/{s}/{n}(id=${h.careerId()},s=${g.season()},n=${g.gameNo()})}">박스</a></td>
+                </tr>
+            </table>
+        </section>
+
+        <section class="card wide" th:unless="${#lists.isEmpty(series)}">
+            <h2>포스트시즌</h2>
+            <table class="compact series">
+                <tr th:each="s : ${series}">
+                    <td class="muted" th:text="${s.league()} + ' ' + ${s.round()}"></td>
+                    <td th:text="'(' + ${s.highSeed()} + ') ' + ${s.high()}"></td>
+                    <td class="num" th:text="${s.highWins()} + ' - ' + ${s.lowWins()}"></td>
+                    <td th:text="${s.low()} + ' (' + ${s.lowSeed()} + ')'"></td>
+                    <td th:text="${s.winner() != null} ? '→ ' + ${s.winner()} : '진행 중'"></td>
+                </tr>
+            </table>
+        </section>
+    </div>
+
+    <section class="card">
+        <h2>순위</h2>
+        <div class="divisions three">
+            <table class="compact" th:each="d : ${standings}">
+                <caption th:text="${d.name()}"></caption>
+                <tr><th></th><th>승</th><th>패</th><th>승률</th><th>차</th></tr>
+                <tr th:each="r : ${d.rows()}" th:classappend="${r.mine()} ? 'mine'">
+                    <td><a th:href="@{/careers/{id}/teams/{t}(id=${h.careerId()},t=${r.teamId()})}"
+                           th:text="${r.abbrev()}"></a></td>
+                    <td class="num" th:text="${r.wins()}"></td>
+                    <td class="num" th:text="${r.losses()}"></td>
+                    <td class="num" th:text="${r.pct()}"></td>
+                    <td class="num" th:text="${r.gb()}"></td>
+                </tr>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

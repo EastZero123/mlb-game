@@ -1,0 +1,31 @@
+# MLB 매니저 서버 (바이너리 설치 JDK 21 + jar). 위치·사용자·JDK 경로는 서버에 맞게 바꾼다.
+# 설치:  sudo cp mlb-game.service /etc/systemd/system/
+#        sudo systemctl daemon-reload && sudo systemctl enable --now mlb-game
+# 로그:  journalctl -u mlb-game -f   (파일 로그는 application-prod.yml 의 logging.file 설정 시 /opt/mlb-game/logs)
+# 재시작: sudo systemctl restart mlb-game
+
+[Unit]
+Description=MLB 162 game server
+# MySQL 을 바이너리로 설치해 systemd 유닛 이름이 다르면 (mysqld / mysql) 아래 After 에 추가
+After=network.target
+
+[Service]
+Type=simple
+User=mlbgame
+WorkingDirectory=/opt/mlb-game
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=SERVER_PORT=8090
+Environment=MANAGEMENT_PORT=8091
+# 저사양 서버: 힙 상한은 서버 메모리에 맞게 (커리어 메모리 캐시 1개 약 1~2MB, 상한 game.cache.max-careers)
+# SerialGC = 코어 1~2개·힙 1GB 이하에서 부담이 가장 적음
+Environment="JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseSerialGC -Xlog:gc*:file=/opt/mlb-game/logs/gc.log:time,uptime:filecount=5,filesize=10m"
+# 설정 파일: /opt/mlb-game/config/application-prod.yml 이 있으면 jar 안의 것보다 우선
+ExecStart=/bin/sh -c 'exec /opt/jdk-21/bin/java $JAVA_OPTS -jar /opt/mlb-game/mlb-game.jar'
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+# graceful shutdown (server.shutdown: graceful) 이 끝날 시간
+TimeoutStopSec=40
+
+[Install]
+WantedBy=multi-user.target

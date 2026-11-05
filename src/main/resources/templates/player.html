@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head(${p.name()})}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <h1 th:text="${p.name()}"></h1>
+    <p class="muted">
+        <span th:text="${p.pos()} + ' · ' + ${p.age()} + '세 · 타/투 ' + ${p.hands()}"></span>
+        <span th:text="' · ' + ${p.team()} + ' ' + ${p.level()}"></span>
+        <span th:if="${p.status() != ''}" th:text="' · ' + ${p.status()}"></span>
+    </p>
+    <p th:text="${p.contract()}"></p>
+    <p class="err" th:if="${p.injury() != null}" th:text="'부상 중 (복귀 예정 ' + ${p.injury()} + ')'"></p>
+
+    <div class="grid">
+        <section class="card">
+            <h2>능력치 <span class="muted small" th:text="'스카우트 ' + ${scout}"></span></h2>
+            <table class="compact">
+                <tr th:each="r : ${p.ratings()}">
+                    <td th:text="${r.label()}"></td>
+                    <td class="num" th:text="${r.range()}"></td>
+                </tr>
+            </table>
+            <h3>숨김 (더 넓은 범위)</h3>
+            <table class="compact">
+                <tr th:each="r : ${p.hidden()}">
+                    <td th:text="${r.label()}"></td>
+                    <td class="num" th:text="${r.range()}"></td>
+                </tr>
+            </table>
+        </section>
+        <section class="card">
+            <h2>커리어 기록</h2>
+            <p class="muted" th:if="${#lists.isEmpty(p.stats())}">아직 기록이 없습니다.</p>
+            <table class="compact" th:unless="${#lists.isEmpty(p.stats())}">
+                <tr th:each="s : ${p.stats()}">
+                    <td th:text="${s.season()}"></td>
+                    <td th:text="${s.level()}"></td>
+                    <td th:text="${s.team()}"></td>
+                    <td th:text="${s.line()}"></td>
+                </tr>
+            </table>
+            <h3>실제 MLB 기록 (2025 까지)</h3>
+            <p class="muted" th:if="${#lists.isEmpty(p.realStats())}">없음</p>
+            <table class="compact" th:unless="${#lists.isEmpty(p.realStats())}">
+                <tr th:each="s : ${p.realStats()}">
+                    <td th:text="${s.season()}"></td>
+                    <td th:text="${s.team()}"></td>
+                    <td th:text="${s.line()}"></td>
+                </tr>
+            </table>
+        </section>
+    </div>
+</main>
+</body>
+</html>

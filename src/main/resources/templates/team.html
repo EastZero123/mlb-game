@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head(${teamName})}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <h1 th:text="${teamName}"></h1>
+        <form method="get" class="row" th:action="@{/careers/{id}/teams/go(id=${h.careerId()})}"
+              onsubmit="location.href=this.action.replace('/go', '/' + this.team.value) + '?level=' + this.level.value; return false;">
+            <select name="team">
+                <option th:each="t : ${teams}" th:value="${t.teamId()}" th:text="${t.name()}"
+                        th:selected="${t.teamId() == teamId}"></option>
+            </select>
+            <input type="hidden" name="level" th:value="${level}">
+            <button type="submit">보기</button>
+        </form>
+    </section>
+    <nav class="tabs">
+        <a th:each="lv, st : ${ {'MLB', 'AAA', 'AA'} }" th:text="${lv}"
+           th:href="@{/careers/{id}/teams/{t}(id=${h.careerId()},t=${teamId},level=${st.index})}"
+           th:classappend="${st.index == level} ? 'active'"></a>
+    </nav>
+    <p class="muted" th:text="'능력치는 스카우트 추정 범위입니다 · 스카우트 ' + ${scout} + (${teamId == h.teamId()} ? ' · 내 팀은 한 단계 정확' : '')"></p>
+    <p class="muted small" th:if="${level > 0}">마이너(AAA·AA) 시즌 기록은 서버 부담을 줄이려고 7일마다 한 번에 반영됩니다 (정규시즌이 끝나는 날에는 바로 반영).</p>
+    <p th:if="${mine}">
+        <span class="strong" th:text="'MLB 현역 ' + ${counts.active()} + ' / 26'"></span> ·
+        <span class="strong" th:text="'40인 명단 ' + ${counts.fortyMan()} + ' / 40'"></span>
+        <span class="muted small" th:unless="${offseason}">· 26인보다 적으면 다음 경기 전에 AI 가 산하 팀 최고 선수로 채웁니다</span>
+        <span class="muted small" th:if="${offseason}">· 오프시즌: 로스터 이동은 막혀 있고, 개막 로스터 단계에서 26인·40인을 맞춥니다</span>
+    </p>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+
+    <h2>타자</h2>
+    <table class="data">
+        <tr><th>이름</th><th>포지션</th><th>나이</th><th>타/투</th><th>상태</th><th>연봉</th>
+            <th title="스카우트 추정 현재 가치: 45 대체 선수 · 55 주전급 · 65+ 올스타급">종합</th><th>컨택</th><th>파워</th><th>선구</th><th>스피드</th><th>수비</th><th>이번 시즌</th><th th:if="${movable}">이동</th></tr>
+        <tr th:each="r : ${roster}" th:unless="${r.pitcher()}">
+            <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+            <td th:text="${r.pos()}"></td>
+            <td class="num" th:text="${r.age()}"></td>
+            <td th:text="${r.hands()}"></td>
+            <td th:text="${r.status()}"></td>
+            <td class="num" th:text="${r.salary()}"></td>
+            <td class="num strong" th:text="${r.overall()}"></td>
+            <td class="num" th:each="v : ${r.ratings()}" th:text="${v}"></td>
+            <td class="muted" th:text="${r.stats()}"></td>
+            <td th:if="${movable}" th:insert="~{fragments :: moves(${r})}"></td>
+        </tr>
+    </table>
+
+    <h2>투수</h2>
+    <table class="data">
+        <tr><th>이름</th><th>포지션</th><th>나이</th><th>타/투</th><th>상태</th><th>연봉</th>
+            <th title="스카우트 추정 현재 가치: 45 대체 선수 · 55 주전급 · 65+ 올스타급">종합</th><th>구위</th><th>제구</th><th>장타억제</th><th>스태미나</th><th>이번 시즌</th><th th:if="${movable}">이동</th></tr>
+        <tr th:each="r : ${roster}" th:if="${r.pitcher()}">
+            <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+            <td th:text="${r.pos()}"></td>
+            <td class="num" th:text="${r.age()}"></td>
+            <td th:text="${r.hands()}"></td>
+            <td th:text="${r.status()}"></td>
+            <td class="num" th:text="${r.salary()}"></td>
+            <td class="num strong" th:text="${r.overall()}"></td>
+            <td class="num" th:each="v : ${r.ratings()}" th:text="${v}"></td>
+            <td class="muted" th:text="${r.stats()}"></td>
+            <td th:if="${movable}" th:insert="~{fragments :: moves(${r})}"></td>
+        </tr>
+    </table>
+</main>
+
+</body>
+</html>

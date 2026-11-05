@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('순위')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <h1 th:text="${h.season()} + ' 시즌 순위'"></h1>
+    <div class="divisions wide">
+        <table class="compact" th:each="d : ${standings}">
+            <caption th:text="${d.name()}"></caption>
+            <tr><th></th><th>승</th><th>패</th><th>승률</th><th>차</th><th>득점</th><th>실점</th><th>연속</th></tr>
+            <tr th:each="r : ${d.rows()}" th:classappend="${r.mine()} ? 'mine'">
+                <td><a th:href="@{/careers/{id}/teams/{t}(id=${h.careerId()},t=${r.teamId()})}"
+                       th:text="${r.name()}"></a></td>
+                <td class="num" th:text="${r.wins()}"></td>
+                <td class="num" th:text="${r.losses()}"></td>
+                <td class="num" th:text="${r.pct()}"></td>
+                <td class="num" th:text="${r.gb()}"></td>
+                <td class="num" th:text="${r.runsFor()}"></td>
+                <td class="num" th:text="${r.runsAgainst()}"></td>
+                <td class="num" th:text="${r.streak()}"></td>
+            </tr>
+        </table>
+    </div>
+    <section class="card" th:unless="${#lists.isEmpty(series)}">
+        <h2>포스트시즌</h2>
+        <table class="compact">
+            <tr th:each="s : ${series}">
+                <td class="muted" th:text="${s.league()} + ' ' + ${s.round()}"></td>
+                <td th:text="'(' + ${s.highSeed()} + ') ' + ${s.high()}"></td>
+                <td class="num" th:text="${s.highWins()} + ' - ' + ${s.lowWins()}"></td>
+                <td th:text="${s.low()} + ' (' + ${s.lowSeed()} + ')'"></td>
+                <td th:text="${s.winner() != null} ? '→ ' + ${s.winner()} : '진행 중'"></td>
+            </tr>
+        </table>
+    </section>
+</main>
+</body>
+</html>

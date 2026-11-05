@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('계약 결정')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(${h})}"></header>
+<main class="page">
+    <section class="bar">
+        <div>
+            <h1 th:text="${c.season()} + ' 오프시즌 계약 결정'"></h1>
+            <p class="muted" th:text="${c.saved()} ? '결정이 저장되어 있습니다. 바꾸려면 다시 저장하세요.' : '아직 저장하지 않았습니다. 결정하지 않은 선수는 오른쪽 \'미결정 시\' 값으로 처리됩니다.'"></p>
+        </div>
+        <a class="button" th:href="@{/careers/{id}(id=${h.careerId()})}">대시보드</a>
+    </section>
+    <p class="ok" th:if="${message}" th:text="${message}"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+
+    <form method="post" th:action="@{/careers/{id}/contracts(id=${h.careerId()})}" id="contracts"
+          th:data-budget="${c.budget()}" th:data-committed="${c.committed()}">
+        <section class="card">
+            <h2>예산</h2>
+            <p>
+                <span th:text="${c.nextSeason()} + ' 시즌 예산 (스카우트 비용 차감) ' + ${c.budgetLabel()}"></span> ·
+                <span th:text="'확정 연봉 (결정 대상 외 40인) ' + ${c.committedLabel()}"></span> ·
+                <span class="strong">결정 후 합계 <span id="total">-</span></span>
+                <span id="over" class="err" hidden> · 예산 초과 (재계약이 있으면 저장할 수 없습니다)</span>
+            </p>
+            <p class="muted small">재계약 연봉은 다음 시즌 시장가치로, FA 시장에 나가면 받을 금액과 같습니다. 연봉조정 연봉은 4단계에서 정해진 금액입니다.
+                FA 로 내보낸 선수는 5단계 FA 시장에서 다른 구단과 계약할 수 있습니다.</p>
+        </section>
+
+        <section class="card" th:unless="${#lists.isEmpty(c.fa())}">
+            <h2>FA 자격 (재계약 여부)</h2>
+            <p class="muted small" th:text="'계약이 끝났거나 서비스 6년이 된 선수 · 능력치는 스카우트 추정 범위 (' + ${c.scout()} + ', 내 팀은 한 단계 정확)'"></p>
+            <table class="data">
+                <tr><th>이름</th><th>포지션</th><th>나이</th><th>서비스</th><th>지난 연봉</th><th>능력</th><th>이번 시즌</th>
+                    <th>재계약 연봉</th><th>연수</th><th>결정</th><th>미결정 시</th></tr>
+                <tr th:each="r : ${c.fa()}" th:data-ask="${r.ask()}" class="item">
+                    <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+                    <td th:text="${r.pos()}"></td>
+                    <td class="num" th:text="${r.age()}"></td>
+                    <td class="num" th:text="${r.service()} + '년'"></td>
+                    <td class="num" th:text="${r.lastSalary()}"></td>
+                    <td th:text="${r.roster() != null} ? ${#strings.listJoin(r.roster().ratings(), ' · ')} : '-'"></td>
+                    <td class="muted" th:text="${r.roster() != null} ? ${r.roster().stats()} : '-'"></td>
+                    <td class="num strong" th:text="${r.askLabel()}"></td>
+                    <td>
+                        <select th:name="'y_' + ${r.playerId()}">
+                            <option th:each="y : ${#numbers.sequence(1, r.maxYears())}" th:value="${y}"
+                                    th:text="${y} + '년'" th:selected="${y == r.years()}"></option>
+                        </select>
+                    </td>
+                    <td class="row">
+                        <label><input type="radio" th:name="'d_' + ${r.playerId()}" value="1" th:checked="${r.choice() == 1}"> 재계약</label>
+                        <label><input type="radio" th:name="'d_' + ${r.playerId()}" value="2" th:checked="${r.choice() == 2}"> 포기</label>
+                    </td>
+                    <td class="muted" th:text="${r.fallbackLabel()}"></td>
+                </tr>
+            </table>
+        </section>
+
+        <section class="card" th:unless="${#lists.isEmpty(c.arb())}">
+            <h2>연봉조정 (텐더 여부)</h2>
+            <p class="muted small">서비스 3~5년 선수. 텐더하면 조정 연봉으로 보유하고, 논텐더하면 방출되어 FA 가 됩니다.</p>
+            <table class="data">
+                <tr><th>이름</th><th>포지션</th><th>나이</th><th>서비스</th><th>조정 연봉</th><th>능력</th><th>이번 시즌</th>
+                    <th>결정</th><th>미결정 시</th></tr>
+                <tr th:each="r : ${c.arb()}" th:data-ask="${r.ask()}" class="item">
+                    <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+                    <td th:text="${r.pos()}"></td>
+                    <td class="num" th:text="${r.age()}"></td>
+                    <td class="num" th:text="${r.service()} + '년'"></td>
+                    <td class="num strong" th:text="${r.askLabel()}"></td>
+                    <td th:text="${r.roster() != null} ? ${#strings.listJoin(r.roster().ratings(), ' · ')} : '-'"></td>
+                    <td class="muted" th:text="${r.roster() != null} ? ${r.roster().stats()} : '-'"></td>
+                    <td class="row">
+                        <label><input type="radio" th:name="'d_' + ${r.playerId()}" value="1" th:checked="${r.choice() == 1}"> 텐더</label>
+                        <label><input type="radio" th:name="'d_' + ${r.playerId()}" value="2" th:checked="${r.choice() == 2}"> 논텐더</label>
+                    </td>
+                    <td class="muted" th:text="${r.fallbackLabel()}"></td>
+                </tr>
+            </table>
+            <p class="muted small">능력 칸: 타자 = 컨택 · 파워 · 선구 · 스피드 · 수비 / 투수 = 구위 · 제구 · 장타억제 · 스태미나</p>
+        </section>
+
+        <div class="row">
+            <button type="submit" name="go" value="false">저장</button>
+            <button type="submit" name="go" value="true" class="primary"
+                    onclick="return confirm('결정을 저장하고 5단계(포스팅·FA)를 진행할까요? 진행 후에는 바꿀 수 없습니다.')">저장하고 다음 단계: 포스팅·FA →</button>
+        </div>
+    </form>
+</main>
+<script>
+    // 결정 후 연봉 합계 (재계약·텐더 선택분 + 확정 연봉)
+    (function () {
+        var form = document.getElementById('contracts');
+        var budget = +form.dataset.budget, committed = +form.dataset.committed;
+        function update() {
+            var total = committed;
+            form.querySelectorAll('tr.item').forEach(function (tr) {
+                var keep = tr.querySelector('input[type=radio][value="1"]');
+                if (keep && keep.checked) total += +tr.dataset.ask;
+            });
+            document.getElementById('total').textContent = '$' + (total / 1000).toFixed(2) + 'M';
+            document.getElementById('over').hidden = total <= budget;
+        }
+        form.addEventListener('change', update);
+        update();
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments :: head('커리어')}"></head>
+<body>
+<header th:replace="~{fragments :: nav(null)}"></header>
+<main class="page">
+    <h1>커리어 슬롯</h1>
+    <p class="muted" th:text="${user} + ' 님의 커리어 (최대 3개)'"></p>
+    <p class="err" th:if="${error}" th:text="${error}"></p>
+    <div class="slots">
+        <section class="card" th:each="s : ${slots}">
+            <h2 th:text="'슬롯 ' + ${s.slot()}"></h2>
+            <th:block th:if="${s.careerId() != null}">
+                <p class="big" th:text="${s.team()}"></p>
+                <p class="muted" th:text="${s.season()} + ' 시즌 · ' + ${s.phase()} + ' · ' + ${s.date()}"></p>
+                <div class="row">
+                    <a class="button" th:href="@{/careers/{id}(id=${s.careerId()})}">이어하기</a>
+                    <form th:action="@{/careers/{id}/delete(id=${s.careerId()})}" method="post"
+                          onsubmit="return confirm('이 커리어를 삭제할까요? 되돌릴 수 없습니다.')">
+                        <button type="submit" class="danger">삭제</button>
+                    </form>
+                </div>
+            </th:block>
+            <form th:if="${s.careerId() == null}" th:action="@{/careers}" method="post" class="stack">
+                <input type="hidden" name="slot" th:value="${s.slot()}">
+                <label>맡을 팀
+                    <select name="teamId" required>
+                        <option th:each="t : ${teams}" th:value="${t.teamId()}"
+                                th:text="${t.name()} + ' (' + ${t.league()} + ')'"></option>
+                    </select>
+                </label>
+                <button type="submit">새 커리어 (2026 개막)</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

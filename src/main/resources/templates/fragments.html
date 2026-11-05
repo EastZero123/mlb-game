@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · MLB 매니저'">MLB 매니저</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/webjars/htmx.org/2.0.4/dist/htmx.min.js}" defer></script>
+</head>
+<body>
+<header th:fragment="nav(h)" class="top">
+    <a class="brand" th:href="@{/}">MLB 매니저</a>
+    <nav th:if="${h != null}">
+        <a th:href="@{/careers/{id}(id=${h.careerId()})}">대시보드</a>
+        <a th:href="@{/careers/{id}/teams/{t}(id=${h.careerId()},t=${h.teamId()})}">내 팀</a>
+        <a th:href="@{/careers/{id}/tactics(id=${h.careerId()})}">운영</a>
+        <a th:href="@{/careers/{id}/trade(id=${h.careerId()})}">트레이드</a>
+        <a th:href="@{/careers/{id}/standings(id=${h.careerId()})}">순위·포스트시즌</a>
+        <span class="muted" th:text="${h.teamName()} + ' · ' + ${h.season()} + ' · ' + ${h.date()}"></span>
+    </nav>
+    <form th:action="@{/logout}" method="post" class="logout">
+        <button type="submit" class="link">로그아웃</button>
+    </form>
+</header>
+
+<!-- 내 팀 이동 버튼 (팀 화면, 컨텍스트: h, level). 규칙 검사는 서버에서 -->
+<th:block th:fragment="moves(r)">
+    <form th:action="@{/careers/{id}/moves(id=${h.careerId()})}" method="post" class="row moves">
+        <input type="hidden" name="playerId" th:value="${r.playerId()}">
+        <input type="hidden" name="level" th:value="${level}">
+        <th:block th:if="${level == 0 and r.statusCode() == 2}">
+            <button class="mini" name="move" value="TO_AAA">AAA로</button>
+            <button class="mini" name="move" value="TO_AA">AA로</button>
+        </th:block>
+        <th:block th:if="${level > 0}">
+            <button class="mini" name="move" value="CALL_UP" th:unless="${r.injured()}">콜업</button>
+            <button class="mini" name="move" value="TO_AA" th:if="${level == 1}">AA로</button>
+            <button class="mini" name="move" value="TO_AAA" th:if="${level == 2}">AAA로</button>
+            <button class="mini" name="move" value="ADD_40" th:if="${r.statusCode() == 0}">40인 등록</button>
+            <button class="mini" name="move" value="REMOVE_40" th:if="${r.statusCode() == 1}">40인 제외</button>
+        </th:block>
+    </form>
+</th:block>
+
+<!-- 트레이드 화면 선수 표 (컨텍스트: h). rows = Views.TradeRow, box = 체크박스 이름(give/get), pitcher = 투수 표 여부 -->
+<th:block th:fragment="tradeTable(rows, box, pitcher)">
+    <table class="data trade">
+        <tr>
+            <th></th><th>이름</th><th>레벨</th><th>포지션</th><th>나이</th><th class="num">연봉</th><th>계약</th>
+            <th class="num" title="스카우트 추정 현재 가치: 45 대체 선수 · 55 주전급 · 65+ 올스타급">종합</th>
+            <th:block th:if="${pitcher}"><th class="num">구위</th><th class="num">제구</th><th class="num">장타억제</th><th class="num">스태미나</th></th:block>
+            <th:block th:unless="${pitcher}"><th class="num">컨택</th><th class="num">파워</th><th class="num">선구</th><th class="num">스피드</th><th class="num">수비</th></th:block>
+        </tr>
+        <tr th:each="r : ${rows}" th:if="${r.pitcher() == pitcher}">
+            <td><input type="checkbox" th:name="${box}" th:class="${box}" th:value="${r.playerId()}"
+                       th:data-salary="${r.salaryK()}" th:data-forty="${r.fortyMan()}"></td>
+            <td><a th:href="@{/careers/{id}/players/{p}(id=${h.careerId()},p=${r.playerId()})}" th:text="${r.name()}"></a></td>
+            <td th:text="${r.level()}"></td>
+            <td th:text="${r.pos()}"></td>
+            <td class="num" th:text="${r.age()}"></td>
+            <td class="num" th:text="${r.salary()}"></td>
+            <td th:text="${r.contract()}"></td>
+            <td class="num strong" th:text="${r.overall()}"></td>
+            <td class="num" th:each="v, st : ${r.ratings()}" th:if="${!pitcher or st.index < 4}" th:text="${v}"></td>
+        </tr>
+    </table>
+</th:block>
+</body>
+</html>

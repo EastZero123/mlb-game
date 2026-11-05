@@ -1,0 +1,89 @@
+# 공통 설정 (모든 프로필)
+spring:
+  application:
+    name: mlb-game
+  profiles:
+    default: local
+
+  # Java 21 가상 스레드: 요청 처리 스레드 비용을 낮춤.
+  # 단, DB 동시성은 아래 Hikari 풀 크기가 상한이므로 풀은 작게 유지.
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    # 접속 정보(app.db.*)는 application-{profile}.yml 에서 지정 (git 제외 파일)
+    url: jdbc:mysql://${app.db.host}:${app.db.port:3306}/${app.db.name:mlbgame}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useLocalSessionState=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&elideSetAutoCommits=true&maintainTimeStats=false
+    username: ${app.db.username}
+    password: ${app.db.password}
+    hikari:
+      pool-name: mlb-hikari
+      maximum-pool-size: ${DB_POOL_MAX:8}
+      minimum-idle: 2
+      connection-timeout: 3000
+      max-lifetime: 1500000   # MySQL wait_timeout 보다 짧게
+
+  jpa:
+    open-in-view: false        # 뷰 렌더링 중 커넥션 점유 방지
+    hibernate:
+      ddl-auto: validate       # 스키마는 Flyway 가 관리
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
+          time_zone: Asia/Seoul
+        order_inserts: true
+        order_updates: true
+        default_batch_fetch_size: 100
+        query:
+          in_clause_parameter_padding: true
+          plan_cache_max_size: 512
+        generate_statistics: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=2000,expireAfterWrite=10m
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  # nginx 뒤에서 동작 (X-Forwarded-* 신뢰)
+  forward-headers-strategy: native
+  # 압축은 nginx 에서 처리 (앱 CPU 절약)
+  compression:
+    enabled: false
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        # 같은 도메인의 /game 서비스(JSESSIONID 추정)와 쿠키 이름 충돌 방지
+        name: MLBSID
+        path: /
+        http-only: true
+        same-site: lax
+  tomcat:
+    max-swallow-size: 1MB
+    connection-timeout: 10s
+
+# 관리용 엔드포인트는 별도 포트 + localhost 바인딩 → 외부 노출 없음
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+    address: 127.0.0.1
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
